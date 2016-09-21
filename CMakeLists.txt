@@ -108,6 +108,10 @@ list(APPEND zerocoin_sources
   Params.cpp
   SerialNumberSignatureOfKnowledge.cpp
   SpendMetaData.cpp
+       ### By sf ###
+        changes/SerialNumberSignatureOfKnowledgeV2.cpp
+        changes/ParamsSoK.cpp
+        changes/CommitmentSoK.cpp
 )
 
 #
@@ -153,6 +157,14 @@ install(FILES
   DESTINATION ${ZEROCOIN_INCLUDE_DIR}
 )
 
+### By sf ###
+install(FILES
+        changes/SerialNumberSignatureOfKnowledgeV2.h
+        changes/ParamsSoK.h
+        changes/CommitmentSoK.h
+        DESTINATION ${ZEROCOIN_INCLUDE_DIR}/changes
+        )
+
 #
 # Create pkg-config file
 #
@@ -184,3 +196,7 @@ target_link_libraries(test zerocoin)
 
 add_executable(tutorial Tutorial.cpp)
 target_link_libraries(tutorial zerocoin)
+
+### By sf ###
+add_executable(testChanges changes/testChanges.cpp)
+target_link_libraries(testChanges zerocoin)

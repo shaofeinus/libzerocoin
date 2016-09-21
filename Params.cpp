@@ -14,6 +14,7 @@
 namespace libzerocoin {
 
 Params::Params(Bignum N, uint32_t securityLevel) {
+    cout << "Security level: " << securityLevel << endl;
 	this->zkp_hash_len = securityLevel;
 	this->zkp_iterations = securityLevel;
 

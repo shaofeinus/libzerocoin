@@ -68,8 +68,16 @@ bool
 CoinSpend::Verify(const Accumulator& a, const SpendMetaData &m) const {
 	// Verify both of the sub-proofs using the given meta-data
 	return  (a.getDenomination() == this->denomination)
+			// Verifies the proof of equality of the two commitments
+			// serialCommitmentToCoinValue is the commitment obtained using the serialNumberSoKCommitmentGroup
+			// accCommitmentToCoinValue is the commitment obtained using the accumulatorPoKCommitmentGroup
+			// -changes
 	        && commitmentPoK.Verify(serialCommitmentToCoinValue, accCommitmentToCoinValue)
+			// Verifies that coin commitment accCommitmentToCoinValue is accumulated in accumulator a
+			// -changes
 	        && accumulatorPoK.Verify(a, accCommitmentToCoinValue)
+			// Prove message m is signed by me
+			// -changes
 	        && serialNumberSoK.Verify(coinSerialNumber, serialCommitmentToCoinValue, signatureHash(m));
 }
 

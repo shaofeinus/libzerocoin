@@ -1086,6 +1086,7 @@ public:
     {
         // Serialize to this stream
         ::Serialize(*this, obj, nType, nVersion);
+        std::cout << "Serializing in CDataStream" << std::endl;
         return (*this);
     }
 

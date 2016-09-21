@@ -15,6 +15,7 @@ using namespace std;
 #include <string>
 #include <iostream>
 #include <fstream>
+#include <ctime>
 #include <curses.h>
 #include <exception>
 #include "Zerocoin.h"
@@ -37,6 +38,17 @@ using namespace std;
 // at: https://github.com/Zerocoin/libzerocoin/wiki
 //
 
+/** By sf
+ *
+ * Returns ms passed
+ * @param start start time
+ * @return
+ */
+
+clock_t timeElapsed(clock_t start) {
+	return (clock() - start) / (double) CLOCKS_PER_SEC * 1000;
+}
+
 bool
 ZerocoinTutorial()
 {
@@ -50,6 +62,8 @@ ZerocoinTutorial()
 	// to indicate all sorts of problems. Always remember to catch them!
 
 	try {
+
+		clock_t startTime;
 
 		/********************************************************************/
 		// What is it:      Parameter loading
@@ -65,9 +79,11 @@ ZerocoinTutorial()
 		testModulus.SetHex(std::string(TUTORIAL_TEST_MODULUS));
 
 		// Set up the Zerocoin Params object
+		startTime = clock();
 		libzerocoin::Params* params = new libzerocoin::Params(testModulus);
-
 		cout << "Successfully loaded parameters." << endl;
+		cout << "	Size of parameters: " << params->GetSerializeSize(0,0) << endl;
+		cout << "	Time used: " << timeElapsed(startTime) << endl;
 
 		/********************************************************************/
 		// What is it:      Coin generation
@@ -84,14 +100,16 @@ ZerocoinTutorial()
 		// new zerocoin. It stores all the private values inside the
 		// PrivateCoin object. This includes the coin secrets, which must be
 		// stored in a secure location (wallet) at the client.
+		startTime = clock();
 		libzerocoin::PrivateCoin newCoin(params);
-
+		cout << "Successfully minted a zerocoin." << endl;
+		std::cout << "	Size of new coin: " << newCoin.GetSerializeSize(0,0) << endl;
 		// Get a copy of the 'public' portion of the coin. You should
 		// embed this into a Zerocoin 'MINT' transaction along with a series
 		// of currency inputs totaling the assigned value of one zerocoin.
 		libzerocoin::PublicCoin pubCoin = newCoin.getPublicCoin();
-
-		cout << "Successfully minted a zerocoin." << endl;
+		std::cout << "	Size of public coin params: " << pubCoin.GetSerializeSize(0,0) << endl;
+		cout << "	Time used: " << timeElapsed(startTime) << endl;
 
 		// Serialize the public coin to a CDataStream object.
 		CDataStream serializedCoin(SER_NETWORK, PROTOCOL_VERSION);
@@ -137,13 +155,22 @@ ZerocoinTutorial()
 		//                  WARNING: do not accumulate the same coin twice!
 		/********************************************************************/
 
+		cout << "Generating test coins..." << endl;
+		std::vector<libzerocoin::PrivateCoin> testCoins;
+		testCoins.reserve(COINS_TO_ACCUMULATE);
+		for (uint32_t i = 0; i < COINS_TO_ACCUMULATE; i++) {
+			testCoins.emplace_back(libzerocoin::PrivateCoin(params));
+		}
+
 		// Create an empty accumulator object
 		libzerocoin::Accumulator accumulator(params);
+		cout << "Size of empty accumulator: " << accumulator.GetSerializeSize(0,0) << endl;
 
 		// Add several coins to it (we'll generate them here on the fly).
 		for (uint32_t i = 0; i < COINS_TO_ACCUMULATE; i++) {
-			libzerocoin::PrivateCoin testCoin(params);
-			accumulator += testCoin.getPublicCoin();
+//			libzerocoin::PrivateCoin testCoin(params);
+			accumulator += testCoins[i].getPublicCoin();
+//			accumulator += testCoin.getPublicCoin();
 		}
 
 		// Serialize the accumulator object.
@@ -164,9 +191,12 @@ ZerocoinTutorial()
 		// We can now continue accumulating things into the accumulator
 		// we just deserialized. For example, let's put in the coin
 		// we generated up above.
+		startTime = clock();
 		newAccumulator += pubCoinNew;
-
 		cout << "Successfully accumulated coins." << endl;
+		cout << "	Size of accumulate accumulator: " << newAccumulator.GetSerializeSize(0,0) << endl;
+		cout << "	Time used to accumulate 1 coin: " << timeElapsed(startTime) << endl;
+
 
 		/********************************************************************/
 		// What is it:      Coin spend
@@ -190,6 +220,7 @@ ZerocoinTutorial()
 		//
 		// To generate the witness, we start with this accumulator and
 		// add the public half of the coin we want to spend.
+		startTime = clock();
 		libzerocoin::AccumulatorWitness witness(params, accumulator, newCoin.getPublicCoin());
 
 		// Add the public half of "newCoin" to the Accumulator itself.
@@ -214,18 +245,25 @@ ZerocoinTutorial()
 		// transaction.
 		libzerocoin::CoinSpend spend(params, newCoin, accumulator, witness, metaData);
 
+		cout << "Successfully generated a coin spend transaction." << endl;
+		cout << "	Size of spend transaction: " << spend.GetSerializeSize(0,0) << endl;
+		cout << "	Time used: " << timeElapsed(startTime) << endl;
+
 		// This is a sanity check. The CoinSpend object should always verify,
 		// but why not check before we put it onto the wire?
 		if (!spend.Verify(accumulator, metaData)) {
 			cout << "ERROR: Our new CoinSpend transaction did not verify!" << endl;
 			return false;
 		}
-		
+
 		// Serialize the CoinSpend object into a buffer.
 		CDataStream serializedCoinSpend(SER_NETWORK, PROTOCOL_VERSION);
+		// Serialize the CoinSpend object into file
+//		FILE * spendTxFile = fopen ("/home/shaofei/Desktop/myfile.txt" , "w");
+
+//		CAutoFile serializedCoinSpend(spendTxFile, 0,0);
 		serializedCoinSpend << spend;
-		
-		cout << "Successfully generated a coin spend transaction." << endl;
+//		fclose(spendTxFile);
 
 		/********************************************************************/
 		// What is it:      Coin spend verification
@@ -238,8 +276,14 @@ ZerocoinTutorial()
 		//                  transaction.
 		/********************************************************************/
 
+//		FILE * spendTxFileReceived = fopen ("/home/shaofei/Desktop/myfile.txt" , "r");
+//		CAutoFile serializedCoinSpendReceived(spendTxFileReceived, 0,0);
+//		fclose(spendTxFileReceived);
+
 		// Deserialize the CoinSpend intro a fresh object
 		libzerocoin::CoinSpend newSpend(params, serializedCoinSpend);
+//		libzerocoin::CoinSpend newSpend(params, serializedCoinSpendReceived);
+
 
 		// Create a new metadata object to contain the hash of the received
 		// ZEROCOIN_SPEND transaction. If we were a real client we'd actually
@@ -252,18 +296,20 @@ ZerocoinTutorial()
 		//
 		// Verify that the spend is valid with respect to the Accumulator
 		// and the Metadata
+		startTime = clock();
 		if (!newSpend.Verify(accumulator, newMetadata)) {
 			cout << "ERROR: The CoinSpend transaction did not verify!" << endl;
 			return false;
 		}
+
+		cout << "Successfully verified a coin spend transaction." << endl;
+		cout << "	Time used: " << timeElapsed(startTime) << endl;
 
 		// Pull the serial number out of the CoinSpend object. If we
 		// were a real Zerocoin client we would now check that the serial number
 		// has not been spent before (in another ZEROCOIN_SPEND) transaction.
 		// The serial number is stored as a Bignum.
 		Bignum serialNumber = newSpend.getCoinSerialNumber();
-
-		cout << "Successfully verified a coin spend transaction." << endl;
 		cout << endl << "Coin serial number is:" << endl << serialNumber << endl;
 
 		// We're done

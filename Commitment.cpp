@@ -94,6 +94,7 @@ CommitmentProofOfKnowledge::CommitmentProofOfKnowledge(const IntegerGroupParams*
 
 	// We're done. The proof is S1, S2, S3 and "challenge", all of which
 	// are stored in member variables.
+	cout << "Commitment PoK proof size: " << this->GetSerializeSize(0,0) << endl;
 }
 
 bool CommitmentProofOfKnowledge::Verify(const Bignum& A, const Bignum& B) const
@@ -111,7 +112,7 @@ bool CommitmentProofOfKnowledge::Verify(const Bignum& A, const Bignum& B) const
 	        this->S2 < Bignum(0) ||
 	        this->S3 < Bignum(0) ||
 	        this->challenge < Bignum(0) ||
-	        this->challenge > (Bignum(2).pow(COMMITMENT_EQUALITY_CHALLENGE_SIZE) - Bignum(1))) {
+			(this->challenge > (Bignum(2).pow(COMMITMENT_EQUALITY_CHALLENGE_SIZE) - Bignum(1)))) {
 		// Invalid inputs. Reject.
 		return false;
 	}

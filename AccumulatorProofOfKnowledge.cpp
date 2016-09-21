@@ -96,6 +96,8 @@ AccumulatorProofOfKnowledge::AccumulatorProofOfKnowledge(const AccumulatorAndPro
 	this->s_phi = (r_phi - c*r) % params->accumulatorPoKCommitmentGroup.groupOrder;
 	this->s_gamma = r_gamma - c*((e-1).inverse(params->accumulatorPoKCommitmentGroup.groupOrder));
 	this->s_psi = r_psi + c*r*((e-1).inverse(params->accumulatorPoKCommitmentGroup.groupOrder));
+
+	cout << "Accum PoK proof size: " << this->GetSerializeSize(0,0) << endl;
 }
 
 /** Verifies that a commitment c is accumulated in accumulator a

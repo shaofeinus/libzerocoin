@@ -16,6 +16,8 @@ namespace libzerocoin {
 
 SerialNumberSignatureOfKnowledge::SerialNumberSignatureOfKnowledge(const Params* p): params(p) { }
 
+// c, s, s' is calculated here
+// -changes
 SerialNumberSignatureOfKnowledge::SerialNumberSignatureOfKnowledge(const
         Params* p, const PrivateCoin& coin, const Commitment& commitmentToCoin,
         uint256 msghash):params(p),
@@ -35,6 +37,11 @@ SerialNumberSignatureOfKnowledge::SerialNumberSignatureOfKnowledge(const
 	Bignum h = params->serialNumberSoKCommitmentGroup.h;
 
 	CHashWriter hasher(0,0);
+	// ***NOTE***
+	// The message, m to sign here is supposed to be msghash
+	// but is NOT, instead it is
+	// *params | commitmentToCoin.getCommitmentValue() | coin.getSerialNumber()
+	// - changes
 	hasher << *params << commitmentToCoin.getCommitmentValue() << coin.getSerialNumber();
 
 	vector<Bignum> r(params->zkp_iterations);
@@ -56,8 +63,14 @@ SerialNumberSignatureOfKnowledge::SerialNumberSignatureOfKnowledge(const
 #ifdef ZEROCOIN_THREADING
 	#pragma omp parallel for
 #endif
+
+    // t
+	// -changes
 	for(uint32_t i=0; i < params->zkp_iterations; i++) {
-		// compute g^{ {a^x b^r} h^v} mod p2
+		// compute { g^{ {a^x b^r} } h^v } mod p2
+		// a_exp is the coin's serial number
+		// b_exp = r[i] and h_exp = v[i], both of which are random numbers
+		// -changes
 		c[i] = challengeCalculation(coin.getSerialNumber(), r[i], v[i]);
 	}
 
@@ -73,11 +86,16 @@ SerialNumberSignatureOfKnowledge::SerialNumberSignatureOfKnowledge(const
 #ifdef ZEROCOIN_THREADING
 	#pragma omp parallel for
 #endif
+
+    // s and s'
+	// -changes
 	for(uint32_t i = 0; i < params->zkp_iterations; i++) {
 		int bit = i % 8;
 		int byte = i / 8;
 
 		bool challenge_bit = ((hashbytes[byte] >> bit) & 0x01);
+		// Note that the if else is switched when compared what is describedto the paper
+		// -changes
 		if (challenge_bit) {
 			s_notprime[i]       = r[i];
 			sprime[i]           = v[i];
@@ -87,8 +105,12 @@ SerialNumberSignatureOfKnowledge::SerialNumberSignatureOfKnowledge(const
 			                              b.pow_mod(r[i] - coin.getRandomness(), params->serialNumberSoKCommitmentGroup.groupOrder));
 		}
 	}
+
+		cout << "SoK proof size: " << this->GetSerializeSize(0,0) << endl;
 }
 
+// Computes t = { g^{ {a^x b^r} } h^v } mod p2
+// -changes
 inline Bignum SerialNumberSignatureOfKnowledge::challengeCalculation(const Bignum& a_exp,const Bignum& b_exp,
         const Bignum& h_exp) const {
 
@@ -110,8 +132,16 @@ bool SerialNumberSignatureOfKnowledge::Verify(const Bignum& coinSerialNumber, co
 	Bignum g = params->serialNumberSoKCommitmentGroup.g;
 	Bignum h = params->serialNumberSoKCommitmentGroup.h;
 	CHashWriter hasher(0,0);
+
+	// ***NOTE**
+	// The message, m to sign here is supposed to be msghash
+	// but is NOT, instead it is
+	// *params | commitmentToCoin.getCommitmentValue() | coin.getSerialNumber()
+	// - changes
 	hasher << *params << valueOfCommitmentToCoin <<coinSerialNumber;
 
+	// t-prime
+	// -changes
 	vector<CBigNum> tprime(params->zkp_iterations);
 	unsigned char *hashbytes = (unsigned char*) &this->hash;
 #ifdef ZEROCOIN_THREADING
@@ -120,10 +150,22 @@ bool SerialNumberSignatureOfKnowledge::Verify(const Bignum& coinSerialNumber, co
 	for(uint32_t i = 0; i < params->zkp_iterations; i++) {
 		int bit = i % 8;
 		int byte = i / 8;
+		// Challenge DOES NOT corresponds to the challenge bit obtained for
+		// calculating s and s' in the constructor
+		// -changes
+		// Note that the if else is switched when compared to what is described the paper
+		// -changes
 		bool challenge_bit = ((hashbytes[byte] >> bit) & 0x01);
 		if(challenge_bit) {
+			// t' = g^{ {a^x b^r} h^v} mod p2
+			// a_exp is the coin's serial number
+			// b_exp = s[i] and h_exp = s'[i]
+			// -changes
 			tprime[i] = challengeCalculation(coinSerialNumber, s_notprime[i], sprime[i]);
 		} else {
+			// t' = { y^{b^s[i]} h^s' } mod p2
+			// y is the coin's commitment value
+			// -changes
 			Bignum exp = b.pow_mod(s_notprime[i], params->serialNumberSoKCommitmentGroup.groupOrder);
 			tprime[i] = ((valueOfCommitmentToCoin.pow_mod(exp, params->serialNumberSoKCommitmentGroup.modulus) % params->serialNumberSoKCommitmentGroup.modulus) *
 			             (h.pow_mod(sprime[i], params->serialNumberSoKCommitmentGroup.modulus) % params->serialNumberSoKCommitmentGroup.modulus)) %
